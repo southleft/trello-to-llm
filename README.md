@@ -4,12 +4,16 @@ A Model Context Protocol (MCP) server that integrates Trello with Claude Code, a
 
 ## Features
 
+### MCP Tools
 - **List Boards**: View all accessible Trello boards
 - **List Cards**: See all cards from a specific board, organized by list
 - **Get Card Details**: Pull complete card information including description, comments, members, labels, attachments, and checklist progress
 - **Update Cards**: Move cards between lists, update names, descriptions, and due dates
 - **Add Comments**: Post comments to cards directly from Claude Code
 - **Get Lists**: Retrieve all lists from a board to facilitate card movement
+
+### Slash Command
+- **Import Cards as Tasks**: `/trello-import` - Automatically fetch Trello cards and convert them to structured task documentation in your repository (works with or without `.agent-os/`)
 
 ## Installation
 
@@ -30,26 +34,35 @@ npm run build
    https://trello.com/1/authorize?expiration=never&name=TrelloMCPServer&scope=read,write&response_type=token&key=YOUR_API_KEY
    ```
 
-### 3. Configure Environment Variables
+### 3. Add MCP Server to Claude
 
-Create a `.env` file in the project root:
+Choose the appropriate method based on which Claude application you're using:
+
+#### **For Claude Code CLI** (Recommended)
+
+Run this command from anywhere (replace the credentials with your actual values):
 
 ```bash
-cp .env.example .env
+claude mcp add --scope user --transport stdio trello \
+  -e TRELLO_API_KEY=your_api_key_here \
+  -e TRELLO_API_TOKEN=your_api_token_here \
+  -- node /absolute/path/to/trello-mcp-server/dist/index.js
 ```
 
-Edit `.env` and add your credentials:
+**Important**: Replace `/absolute/path/to/trello-mcp-server` with the actual full path (run `pwd` in the project directory to get it).
 
-```env
-TRELLO_API_KEY=your_api_key_here
-TRELLO_API_TOKEN=your_api_token_here
+**Verify it worked**:
+```bash
+claude mcp list
 ```
 
-### 4. Configure Claude Code
+You should see: `trello: node /path/to/dist/index.js - ✓ Connected`
 
-Add the server to your Claude Code configuration file:
+#### **For Claude Desktop App**
 
-**macOS/Linux**: `~/.config/claude/claude_desktop_config.json`
+Add the server to your Claude Desktop configuration file:
+
+**macOS**: `~/.config/claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
@@ -69,9 +82,10 @@ Add the server to your Claude Code configuration file:
 
 **Note**: Replace `/absolute/path/to/trello-mcp-server` with the actual full path to your installation.
 
-### 5. Restart Claude Code
+### 4. Restart Claude
 
-Close and reopen Claude Code for the changes to take effect.
+**Claude Code CLI**: Start a new session
+**Claude Desktop**: Completely close and reopen the app
 
 ## Usage
 
@@ -169,6 +183,136 @@ Adds a comment to a card.
 User: Add a comment to card xyz789 saying "Completed testing"
 ```
 
+## Slash Command: `/trello-import`
+
+The `/trello-import` command automatically imports Trello cards as structured task documentation in your repository.
+
+### Setup
+
+Copy the `.claude/commands/` directory from this repo to your project:
+
+```bash
+# From the trello-mcp-server directory
+cp -r .claude /path/to/your/project/
+```
+
+Or manually create `.claude/commands/trello-import.md` in your project (see `.claude/commands/trello-import.md` in this repo).
+
+### Usage
+
+```bash
+/trello-import board=<board-id> list="<list-name>" count=<number>
+```
+
+**Parameters**:
+- `board`: Board ID or name
+- `list`: List name to filter by (e.g., "Ready for Development")
+- `count`: Number of cards to import (default: 5)
+- `label`: (Optional) Filter by label name
+
+**Examples**:
+```bash
+# Import 5 cards from "Ready for Development" list
+/trello-import board=abc123 list="Ready for Development" count=5
+
+# Import 3 high-priority cards
+/trello-import board=my-board list="Backlog" label="high-priority" count=3
+```
+
+### Output Structure
+
+The command creates task files in your repository:
+
+**With `.agent-os/` (agentos)**:
+```
+.agent-os/
+  tasks/
+    trello/
+      index.md                          # Summary of all tasks
+      CARD-abc123-implement-auth.md     # Individual task files
+      CARD-def456-api-endpoint.md
+```
+
+**Without `.agent-os/`**:
+```
+tasks/
+  trello/
+    index.md
+    CARD-abc123-implement-auth.md
+    CARD-def456-api-endpoint.md
+```
+
+### Task File Format
+
+Each imported task includes:
+- Card title and Trello link
+- Current list, labels, and assigned members
+- Full description and acceptance criteria
+- Recent comments from team members
+- Checklist progress
+- Import timestamp
+
+**Example task file**:
+```markdown
+# Implement User Authentication
+
+**Trello Card**: https://trello.com/c/abc123
+**List**: Ready for Development
+**Labels**: backend, high-priority
+**Members**: @jane, @john
+**Due Date**: 2025-11-15
+
+## Description
+
+Implement JWT-based authentication for the API...
+
+## Acceptance Criteria
+
+- [ ] Users can register with email/password
+- [ ] JWT tokens are issued on login
+- [ ] Protected endpoints verify tokens
+
+## Comments
+
+- **Jane Doe** (2025-10-20): We should use bcrypt for hashing
+- **John Smith** (2025-10-21): Agreed, also add rate limiting
+
+## Links
+
+- [View on Trello](https://trello.com/c/abc123)
+- Card ID: `abc123`
+
+---
+*Imported from Trello on 2025-10-28*
+```
+
+### Benefits
+
+✅ **Context for Claude**: Claude can reference task details during development
+✅ **Git-tracked**: Task documentation lives alongside your code
+✅ **Team visibility**: Everyone can see imported tasks
+✅ **Trello-linked**: Easy navigation back to original cards
+✅ **Portable**: Works with or without `.agent-os/`
+
+### Workflow Example
+
+```bash
+# In your project directory
+cd ~/my-project
+claude
+
+# Import tasks
+/trello-import board=my-board list="Ready for Development" count=5
+
+# Claude creates task files and shows summary
+
+# Start working on a task
+User: Let's implement the authentication task
+Claude: [Reads .agent-os/tasks/trello/CARD-abc123-implement-auth.md]
+       I see this task requires JWT authentication with these acceptance criteria...
+       Let me start by creating the auth service...
+```
+
 ## Team Distribution
 
 To share this with your team:
@@ -179,8 +323,9 @@ To share this with your team:
 2. Team members clone the repo
 3. Each team member:
    - Runs `npm install && npm run build`
-   - Creates their own `.env` file with their Trello credentials
-   - Updates their `claude_desktop_config.json` with the path to their local installation
+   - Gets their own Trello API credentials
+   - **For Claude Code CLI**: Runs the `claude mcp add` command with their credentials
+   - **For Claude Desktop**: Updates their `claude_desktop_config.json` with the path and their credentials
 
 ### Option 2: NPM Package
 
@@ -194,7 +339,15 @@ To share this with your team:
    npm install -g trello-mcp-server
    ```
 
-3. Update `claude_desktop_config.json`:
+3. **For Claude Code CLI**:
+   ```bash
+   claude mcp add --scope user --transport stdio trello \
+     -e TRELLO_API_KEY=your_key \
+     -e TRELLO_API_TOKEN=your_token \
+     -- trello-mcp-server
+   ```
+
+4. **For Claude Desktop**, update `claude_desktop_config.json`:
    ```json
    {
      "mcpServers": {
@@ -266,11 +419,24 @@ Use AI to recommend which card to work on next based on priority, due dates, and
 
 ### "TRELLO_API_KEY and TRELLO_API_TOKEN must be set"
 
-Make sure your `.env` file exists and contains valid credentials, or that the environment variables are properly set in `claude_desktop_config.json`.
+**For Claude Code CLI**: Make sure you passed the credentials when running `claude mcp add` with the `-e` flags.
 
-### "Unknown tool: list_boards"
+**For Claude Desktop**: Make sure the environment variables are properly set in `claude_desktop_config.json`.
 
-The MCP server isn't properly connected. Restart Claude Code and check that the path in `claude_desktop_config.json` is correct.
+### "Unknown tool: list_boards" or "No MCP servers configured"
+
+**For Claude Code CLI**:
+1. Run `claude mcp list` to verify the server is installed
+2. If not listed, re-run the `claude mcp add` command
+3. Start a fresh Claude Code session (MCP servers load at startup)
+
+**For Claude Desktop**:
+1. Check that the path in `claude_desktop_config.json` is correct and absolute
+2. Restart Claude Desktop completely
+
+### Check MCP Server Health
+
+**For Claude Code CLI**: Run `claude doctor` to see server connection status and diagnose issues.
 
 ### API Rate Limits
 

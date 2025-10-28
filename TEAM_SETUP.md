@@ -1,14 +1,21 @@
 # Team Setup Guide - Trello MCP Server
 
-Quick setup instructions for team members to get the Trello integration working with Claude Code.
+Quick setup instructions for team members to get the Trello integration working with Claude Code or Claude Desktop.
 
 ## Prerequisites
 
 - Node.js 18+ installed
-- Claude Code installed
+- Claude Code CLI or Claude Desktop installed
 - Access to your team's Trello boards
 
-## Setup Steps (5 minutes)
+## Choose Your Setup Path
+
+- **Claude Code CLI** (Terminal-based): Follow the "Quick Setup" below
+- **Claude Desktop** (Desktop app): Follow the "Desktop Setup" section
+
+---
+
+## Quick Setup for Claude Code CLI (5 minutes)
 
 ### 1. Clone the Repository
 
@@ -39,39 +46,29 @@ npm run build
 3. Click "Allow" to authorize the application
 4. Copy the token that appears
 
-### 4. Configure Claude Code
+### 4. Add to Claude Code
 
-**macOS/Linux:**
-Edit `~/.config/claude/claude_desktop_config.json`
+Run this command from anywhere (replace with your actual credentials and path):
 
-**Windows:**
-Edit `%APPDATA%\Claude\claude_desktop_config.json`
-
-Add this configuration (create the file if it doesn't exist):
-
-```json
-{
-  "mcpServers": {
-    "trello": {
-      "command": "node",
-      "args": ["/REPLACE/WITH/FULL/PATH/TO/trello-mcp-server/dist/index.js"],
-      "env": {
-        "TRELLO_API_KEY": "paste_your_api_key_here",
-        "TRELLO_API_TOKEN": "paste_your_token_here"
-      }
-    }
-  }
-}
+```bash
+claude mcp add --scope user --transport stdio trello \
+  -e TRELLO_API_KEY=paste_your_api_key_here \
+  -e TRELLO_API_TOKEN=paste_your_token_here \
+  -- node /FULL/PATH/TO/trello-mcp-server/dist/index.js
 ```
 
-**Important:**
-- Replace `/REPLACE/WITH/FULL/PATH/TO/` with the actual absolute path
-- To get the full path, run `pwd` in the project directory on Mac/Linux or `cd` on Windows
-- Replace the API key and token with your actual credentials
+**Get the full path**: Run `pwd` while in the `trello-mcp-server` directory.
 
-### 5. Restart Claude Code
+**Verify it worked**:
+```bash
+claude mcp list
+```
 
-Completely close and reopen Claude Code.
+You should see: `trello: node /path/to/dist/index.js - ✓ Connected`
+
+### 5. Start a New Session
+
+Start a fresh Claude Code session to load the MCP server.
 
 ## Verify It's Working
 
@@ -95,28 +92,91 @@ Open Claude Code and try these commands:
 
 If you see Trello data, you're all set! 🎉
 
+---
+
+## Desktop Setup for Claude Desktop (5 minutes)
+
+### 1. Clone the Repository
+
+```bash
+git clone <your-repo-url>
+cd trello-mcp-server
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+npm run build
+```
+
+### 3. Get Your Trello Credentials
+
+Follow the same steps as above (Step 3 in Quick Setup)
+
+### 4. Configure Claude Desktop
+
+**macOS**: Edit `~/.config/claude/claude_desktop_config.json`
+**Windows**: Edit `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add this configuration (create the file if it doesn't exist):
+
+```json
+{
+  "mcpServers": {
+    "trello": {
+      "command": "node",
+      "args": ["/FULL/PATH/TO/trello-mcp-server/dist/index.js"],
+      "env": {
+        "TRELLO_API_KEY": "paste_your_api_key_here",
+        "TRELLO_API_TOKEN": "paste_your_token_here"
+      }
+    }
+  }
+}
+```
+
+**Important**: Replace `/FULL/PATH/TO/` with the actual absolute path (run `pwd` in the project directory).
+
+### 5. Restart Claude Desktop
+
+Completely close and reopen the Claude Desktop app.
+
+---
+
 ## Common Issues
 
-### "Command not found" or "Cannot find module"
+### For Claude Code CLI
 
-- Check that the path in `claude_desktop_config.json` is absolute (not relative)
+**Server not listed**:
+```bash
+claude mcp list
+```
+If not shown, re-run the `claude mcp add` command.
+
+**Check health**:
+```bash
+claude doctor
+```
+
+### For Both Claude Code CLI and Desktop
+
+**"Command not found" or "Cannot find module"**:
+- Check that the path is absolute (not relative)
 - Make sure you ran `npm run build`
 - Verify the path ends with `/dist/index.js`
 
-### "TRELLO_API_KEY and TRELLO_API_TOKEN must be set"
+**"TRELLO_API_KEY and TRELLO_API_TOKEN must be set"**:
+- **Claude Code CLI**: Verify you passed credentials with `-e` flags
+- **Claude Desktop**: Check credentials in `claude_desktop_config.json`
+- Make sure there are no extra spaces
 
-- Double-check your credentials in `claude_desktop_config.json`
-- Make sure there are no extra spaces in the JSON
-- Verify the JSON is valid (no missing commas or brackets)
+**Tools not appearing**:
+- **Claude Code CLI**: Start a fresh session (MCP servers load at startup)
+- **Claude Desktop**: Completely restart the app
+- Run `claude doctor` (CLI) or check logs (Desktop)
 
-### Tools not appearing in Claude Code
-
-- Restart Claude Code completely
-- Check the Claude Code logs for errors
-- Verify the `mcpServers` section is properly formatted
-
-### "Unauthorized" or API errors
-
+**"Unauthorized" or API errors**:
 - Regenerate your Trello token (they can expire)
 - Make sure you clicked "Allow" when authorizing
 
@@ -156,11 +216,28 @@ User: Move card xyz789 to "Done" and mark the due date complete
 Claude: [Updates card status]
 ```
 
+## Bonus: Import Tasks with `/trello-import`
+
+After setting up, you can import Trello cards as task files in your project:
+
+```bash
+# Copy the .claude/commands directory to your project
+cp -r /path/to/trello-mcp-server/.claude /path/to/your/project/
+
+# Then in your project
+/trello-import board=abc123 list="Ready for Development" count=5
+```
+
+This creates structured task files in `.agent-os/tasks/trello/` (or `tasks/trello/` if no `.agent-os/`).
+
+**See README.md** for full `/trello-import` documentation.
+
 ## Tips
 
 - **Board IDs**: Save frequently-used board IDs in your notes
 - **Card IDs**: You can use Trello short URLs instead of long IDs
 - **Natural Language**: Just talk naturally - Claude will figure out which tools to use
 - **Batch Operations**: You can ask Claude to perform multiple operations at once
+- **Task Import**: Use `/trello-import` to pull tickets into your repo for context
 
 Enjoy your enhanced development workflow! 🚀

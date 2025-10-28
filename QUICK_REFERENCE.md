@@ -1,5 +1,32 @@
 # Trello MCP Server - Quick Reference
 
+## Slash Command: `/trello-import`
+
+Import Trello cards as task files in your repository:
+
+```bash
+/trello-import board=abc123 list="Ready for Development" count=5
+```
+
+**What it does**:
+- Fetches cards from Trello
+- Creates markdown task files in `.agent-os/tasks/trello/` (or `tasks/trello/` if no `.agent-os/`)
+- Includes description, acceptance criteria, comments, and links
+- Creates an index file summarizing all tasks
+
+**Quick Examples**:
+```bash
+# Import 5 Ready for Dev cards
+/trello-import board=my-board list="Ready for Development" count=5
+
+# Import high-priority backlog items
+/trello-import board=my-board list="Backlog" label="high-priority" count=3
+```
+
+**Perfect for**: Starting a sprint, planning development work, documenting tasks alongside code
+
+---
+
 ## Common Claude Code Prompts
 
 ### View Boards & Cards

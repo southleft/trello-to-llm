@@ -39,6 +39,13 @@ All notable changes to the Trello MCP Server will be documented in this file.
   - Resource endpoints for board data
   - Tool-based interactions with comprehensive schemas
 
+- **Slash Command**
+  - `/trello-import` command to import Trello cards as task documentation
+  - Automatically creates structured markdown files in repository
+  - Works with or without `.agent-os/` directory
+  - Includes full card details, comments, acceptance criteria, and links
+  - Generates index file summarizing all imported tasks
+
 #### Documentation
 - Comprehensive README with setup and usage instructions
 - Team setup guide for easy onboarding
