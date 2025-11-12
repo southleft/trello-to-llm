@@ -51,6 +51,13 @@ export interface TrelloComment {
   };
 }
 
+export interface TrelloMember {
+  id: string;
+  fullName: string;
+  username: string;
+  avatarUrl?: string;
+}
+
 export class TrelloClient {
   private client: AxiosInstance;
   private apiKey: string;
@@ -75,6 +82,11 @@ export class TrelloClient {
 
   async getBoard(boardId: string): Promise<TrelloBoard> {
     const response = await this.client.get<TrelloBoard>(`/boards/${boardId}`);
+    return response.data;
+  }
+
+  async getBoardMembers(boardId: string): Promise<TrelloMember[]> {
+    const response = await this.client.get<TrelloMember[]>(`/boards/${boardId}/members`);
     return response.data;
   }
 
@@ -135,5 +147,19 @@ export class TrelloClient {
 
   async moveCard(cardId: string, listId: string): Promise<TrelloCard> {
     return this.updateCard(cardId, { idList: listId });
+  }
+
+  async createCard(params: {
+    name: string;
+    idList: string;
+    desc?: string;
+    pos?: 'top' | 'bottom' | number;
+    due?: string;
+    dueComplete?: boolean;
+    idLabels?: string[];
+    idMembers?: string[];
+  }): Promise<TrelloCard> {
+    const response = await this.client.post<TrelloCard>('/cards', params);
+    return response.data;
   }
 }

@@ -69,6 +69,21 @@ const GetListsSchema = z.object({
   boardId: z.string().describe('The ID of the Trello board'),
 });
 
+const GetBoardMembersSchema = z.object({
+  boardId: z.string().describe('The ID of the Trello board'),
+});
+
+const CreateCardSchema = z.object({
+  name: z.string().describe('The name/title of the card'),
+  listId: z.string().describe('The ID of the list to create the card in'),
+  description: z.string().optional().describe('Description for the card (optional)'),
+  position: z.enum(['top', 'bottom']).optional().describe('Position in the list: top or bottom (optional, defaults to bottom)'),
+  dueDate: z.string().optional().describe('Due date in ISO format (optional)'),
+  dueComplete: z.boolean().optional().describe('Whether the due date is complete (optional)'),
+  labelIds: z.array(z.string()).optional().describe('Array of label IDs to add to the card (optional)'),
+  memberIds: z.array(z.string()).optional().describe('Array of member IDs to assign to the card (optional)'),
+});
+
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -112,6 +127,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: 'get_lists',
         description: 'Get all lists from a Trello board (useful for moving cards between lists)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            boardId: {
+              type: 'string',
+              description: 'The ID of the Trello board',
+            },
+          },
+          required: ['boardId'],
+        },
+      },
+      {
+        name: 'get_board_members',
+        description: 'Get all members of a Trello board (useful for assigning cards)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -173,6 +202,55 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ['cardId', 'comment'],
+        },
+      },
+      {
+        name: 'create_card',
+        description: 'Create a new card in a Trello list',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'The name/title of the card',
+            },
+            listId: {
+              type: 'string',
+              description: 'The ID of the list to create the card in',
+            },
+            description: {
+              type: 'string',
+              description: 'Description for the card (optional)',
+            },
+            position: {
+              type: 'string',
+              enum: ['top', 'bottom'],
+              description: 'Position in the list: top or bottom (optional, defaults to bottom)',
+            },
+            dueDate: {
+              type: 'string',
+              description: 'Due date in ISO format (optional)',
+            },
+            dueComplete: {
+              type: 'boolean',
+              description: 'Whether the due date is complete (optional)',
+            },
+            labelIds: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of label IDs to add to the card (optional)',
+            },
+            memberIds: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of member IDs to assign to the card (optional)',
+            },
+          },
+          required: ['name', 'listId'],
         },
       },
     ],
@@ -295,6 +373,24 @@ Checklist Items: ${card.badges.checkItemsChecked}/${card.badges.checkItems}${com
         };
       }
 
+      case 'get_board_members': {
+        const validated = GetBoardMembersSchema.parse(args);
+        const members = await trelloClient.getBoardMembers(validated.boardId);
+
+        const membersList = members
+          .map(member => `- ${member.fullName} (@${member.username}) - ID: ${member.id}`)
+          .join('\n');
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Found ${members.length} board members:\n\n${membersList}`,
+            },
+          ],
+        };
+      }
+
       case 'update_card': {
         const validated = UpdateCardSchema.parse(args);
 
@@ -328,6 +424,42 @@ Checklist Items: ${card.badges.checkItemsChecked}/${card.badges.checkItems}${com
             {
               type: 'text',
               text: `Successfully added comment to card ${validated.cardId}`,
+            },
+          ],
+        };
+      }
+
+      case 'create_card': {
+        const validated = CreateCardSchema.parse(args);
+
+        const cardParams: {
+          name: string;
+          idList: string;
+          desc?: string;
+          pos?: 'top' | 'bottom';
+          due?: string;
+          dueComplete?: boolean;
+          idLabels?: string[];
+          idMembers?: string[];
+        } = {
+          name: validated.name,
+          idList: validated.listId,
+        };
+
+        if (validated.description) cardParams.desc = validated.description;
+        if (validated.position) cardParams.pos = validated.position;
+        if (validated.dueDate) cardParams.due = validated.dueDate;
+        if (validated.dueComplete !== undefined) cardParams.dueComplete = validated.dueComplete;
+        if (validated.labelIds) cardParams.idLabels = validated.labelIds;
+        if (validated.memberIds) cardParams.idMembers = validated.memberIds;
+
+        const newCard = await trelloClient.createCard(cardParams);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Successfully created card: ${newCard.name}\nID: ${newCard.id}\nURL: ${newCard.shortUrl}`,
             },
           ],
         };
